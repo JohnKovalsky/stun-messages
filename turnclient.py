@@ -6,6 +6,8 @@ import random
 import types
 import math
 import sys
+import hmac
+import hashlib
 import socket
 import logging
 
@@ -41,6 +43,7 @@ class AttributeType(IntEnum):
 
     MappedAddress:int16     = 0x0001
     Username:int16          = 0x0006
+    MessageIntegrity:int16  = 0x0008
     ErrorCode:int16         = 0x0009
     Realm:int16             = 0x0014
     Nonce:int16             = 0x0015
@@ -239,6 +242,18 @@ class ResponseOriginAttribute(MappedAddressAttribute):
         return ResponseOriginAttribute(*MappedAddressAttribute.decode_address(data))
 
 
+@attribute(attribute_type=AttributeType.MessageIntegrity)
+class MessageIntegrity(Attribute):
+
+    def __init__(self, digest:bytes):
+        assert isinstance(digest, bytes) or isintance(digest, bytearray)
+        assert len(digets) == 20
+        self.digest = digest
+
+    def encode(self)->bytearray:
+        return self.digest
+        
+
 @attribute(attribute_type=AttributeType.ErrorCode)
 class ErrorCodeValue(Attribute):
 
@@ -290,7 +305,13 @@ class Message(SimpleNamespace):
 
 
 class Credentials():
-    pass
+    
+    def generate_key(self):
+        raise NotImplemented()
+
+    def make_hash(self, message_bytes:bytearray)->bytes:
+        key = self.generate_key()
+        return hmac.digest(key, message_bytes, "SHA1")
 
 
 class LongTermCredentials(Credentials):
@@ -299,6 +320,16 @@ class LongTermCredentials(Credentials):
         self.password = password
         self.username = username
         self.realm = realm
+
+    def generate_key(self)->bytes:
+        # TODO: apply SASLprep to password
+        return hashlib.md5(
+            self.username +
+            ":" +
+            self.realm +
+            ":" +
+            self.password
+        )
 
 
 class ShortTermCredentials(Credentials):
