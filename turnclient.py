@@ -357,12 +357,12 @@ class ShortTermCredentials(Credentials):
         )
 
 
-def __encode_message_header(
+def _encode_message_header(
         message_class:int16, 
         message_method:int16, 
         message_length:int16, 
         transaction_id:int
-    )->bytearray:
+    )->bytes:
     encoded_message_type = (
         ((message_method & 0x0F80) << 2)
         | ((message_method & 0x0070) << 1)
@@ -376,9 +376,26 @@ def __encode_message_header(
     return header
 
 
-def __encode_attribute_header(attribute_type:int16, attribute_length:int16)->bytearray:
+def __encode_attribute_header(attribute_type:int16, attribute_length:int16)->bytes:
     attribute_header = pack("!HH", attribute_type, attribute_length)
     return attribute_header
+
+
+def encode_attribute(attribute:Attribute)->bytes:
+   
+    attribute_payload = attribute.encode()
+    assert isinstance(attribute_payload, bytearray) \
+            or isinstance(attribute_payload, bytes)
+
+    attribute_length = len(attribute_payload)
+    
+    packet = _encode_message_header(attribute.attribute_type, attribute_length)
+    packet += attribute_payload
+
+    # add padding to aling to 4 bytes
+    padding_length = (4 - attribute_length) % 4
+    packet += b'\x00' * padding_length
+    return packet
 
 
 def encode(message:Message, credentials:Credentials=None)->bytearray:
@@ -388,9 +405,9 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
     transaction_id = random.randint(0, 2**32 - 1)
     
     message_class:int16 = message.message_class
-    message_method:int16 = message.message_method
+    message_method:int16 = message.method
 
-    packet = __encode_message_header(
+    packet = _encode_message_header(
         message_class,
         message_method,
         0,
@@ -401,20 +418,9 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
 
     for attribute in message.attributes:
 
-        attribute_payload = attribute.encode()
-        assert isinstance(attribute_payload, bytearray) \
-                or isinstance(attribute_payload, bytes)
-
-        attribute_length = len(attribute_payload)
-        
-        packet += __encode_message_header(attribute.attribute_type, attribute_length)
-        packet += attribute_payload
-
-        # add padding to aling to 4 bytes
-        padding_length = (4 - attribute_length) % 4
-        packet += b'\x00' * padding_length
-
-        message_length += padding_length + attribute_length
+        attribute_bytes = encode_attribute(attribute)
+        packet += attribute_bytes
+        message_length += len(attribute_bytes) 
 
     packet[2:4] = pack("!H", message_length)
 
@@ -448,6 +454,32 @@ def __decode_attribute_header(data:bytes):
     return attribute_type, attribute_length
 
 
+def decode_attribute(data:bytes):
+    attribute_type, payload_length = __decode_attribute_header(data)
+    data_idx = 4
+   
+    print(payload_length, data_idx, message_length, len(data))
+    print(f"attribute_type={attribute_type:x} payload_length={payload_length}")
+    
+    assert payload_length <= len(data) - data_idx
+    assert attribute_type in set(map(lambda x: x.value, AttributeType.__members__.values()))
+    
+    if attribute_type in ATTRIBUTE_PARSERS:
+        assert attribute_type in ATTRIBUTE_PARSERS
+        parser = ATTRIBUTE_PARSERS[attribute_type]
+        attribute = parser(data[data_idx:data_idx + payload_length])
+        
+    #TODO: handle unknown arguments in two ways:
+    # - if 'strict' mode is set then raise appriorate exception
+    # - if no 'strict' mode is set, parse attribute as special 'unknown attribute'
+    #   and let user do parsing
+    else:
+        print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
+  
+    padding_length = (4 - payload_length) % 4
+    return attribute, payload_length, padding_length
+
+
 def decode(data, credentials:Credentials=None):
     assert isinstance(data, bytes)
     data_length = len(data)
@@ -458,31 +490,38 @@ def decode(data, credentials:Credentials=None):
 
     data_idx = 20
     while data_idx < data_length:
+        #TODO: remove commented code below
+        ### OLD ATTRIBUTE PARSING:
         #print(data[data_idx:data_idx + 4])
-        attribute_tyoe, attribute_length = __decode_attribute_header(data[data_idx:])
-        print(attribute_length, data_idx, message_length, len(data))
-        data_idx += 4
-        print(f"attribute_type={attribute_type:x} attribute_length={attribute_length}")
-        assert attribute_length <= (message_length - 20)
-        assert attribute_type in set(map(lambda x: x.value, AttributeType.__members__.values()))
+        #attribute_tyoe, attribute_length = __decode_attribute_header(data[data_idx:])
+        #print(attribute_length, data_idx, message_length, len(data))
+        #data_idx += 4
+        #print(f"attribute_type={attribute_type:x} attribute_length={attribute_length}")
+        #assert attribute_length <= (message_length - 20)
+        #assert attribute_type in set(map(lambda x: x.value, AttributeType.__members__.values()))
         
-        print(AttributeType.__members__)
+        #print(AttributeType.__members__)
 
-        if attribute_type in ATTRIBUTE_PARSERS:
-            assert attribute_type in ATTRIBUTE_PARSERS
-            parser = ATTRIBUTE_PARSERS[attribute_type]
-            attribute = parser(data[data_idx:data_idx + attribute_length])
+        #if attribute_type in ATTRIBUTE_PARSERS:
+            #assert attribute_type in ATTRIBUTE_PARSERS
+            #parser = ATTRIBUTE_PARSERS[attribute_type]
+            #attribute = parser(data[data_idx:data_idx + attribute_length])
             
-            attributes.append(attribute)
-        else:
-            print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
-        data_idx += attribute_length
+            #attributes.append(attribute)
+        #else:
+            #print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
+        #data_idx += attribute_length
 
-        padding_length = (4 - attribute_length) % 4
-        data_idx += padding_length
+        #padding_length = (4 - attribute_length) % 4
+        #data_idx += padding_length
+
+        attribute, payload_length, padding_length = decode_attribute(data[data_idx:])
+        if attribute:
+            attributes.append(attribute)
+        data_idx += 4 + payload_length + padding_length
 
     return Message(
-        message_method=MessageMethod(message_method),
+        method=MessageMethod(message_method),
         message_class=MessageClass(message_class),
         attributes=attributes,
     )
@@ -492,7 +531,7 @@ if __name__ == "__main__":
     print("System byte order:", sys.byteorder)
 
     message = Message(
-        message_method=MessageMethod.Bind,
+        method=MessageMethod.Bind,
         message_class=MessageClass.Request,
         attributes=[
            SoftwareAttribute("python turn client v0.0.1"),
