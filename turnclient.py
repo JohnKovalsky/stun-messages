@@ -294,16 +294,26 @@ class ErrorCodeValue(Attribute):
         return ErrorCodeValue(error_code, reason)
 
 
-class Message(SimpleNamespace):
-    type:int16 = None
-    message_method:MessageMethod = None
+class Message():
+    method:int16 = None
     message_class:MessageClass = None
     length:int16 = 0
     attributes:List[Attribute]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.attributes = kwargs.get("attributes", None) or []
+    def __init__(self, method:int, message_class:MessageClass, attributes:List[attribute]=None):
+        assert isinstance(message_class, MessageClass)
+        assert isinstance(attributes, (list, type(None)))
+        assert isinstance(method, (int, MessageMethod))
+        assert message_class >= 0 and message_class <= 0xFFFF
+        assert method >= 0 and method <= 0xFFFF
+
+        self.method = int(method)
+        self.message_class = message_class
+        self.attributes = attributes or []
+
+    @property
+    def method_name(self)->str:
+        return MessageMethod.try_convert(self.method)
 
 
 class Credentials():
