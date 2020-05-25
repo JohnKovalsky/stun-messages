@@ -56,17 +56,19 @@ class AttributeType(IntEnum):
 
 def attribute(attribute_type):
     def attribute_decorator(Cls):
-        assert isinstance(attribute_type, AttributeType)
+        assert isinstance(attribute_type, (AttributeType, int))
         assert hasattr(Cls, "decode")
+
+        attribute_type_value = int(attribute_type) # convert to int in case of using IntEnum
         
         decode_method = getattr(Cls, "decode")
         assert isinstance(decode_method, types.FunctionType)
 
         logger.debug(f"Adding parser to attribute 0x{attribute_type:x}")
-        assert attribute_type not in ATTRIBUTE_PARSERS
-        ATTRIBUTE_PARSERS[attribute_type] = decode_method
+        assert attribute_type_value not in ATTRIBUTE_PARSERS
+        ATTRIBUTE_PARSERS[attribute_type_value] = decode_method
 
-        setattr(Cls, "__attribute_type__", attribute_type) 
+        setattr(Cls, "__attribute_type__", attribute_type_value) 
 
         return Cls
     return attribute_decorator
