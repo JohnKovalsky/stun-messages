@@ -1,0 +1,15 @@
+{
+    "data": "AAMAaCESpEJlms3DzVGhGLP/A50AGQAEEQAAAAANAAQAAAMJABgAAYAAAAAAFwAEAQAAAAAGAAR1c2VyABUAEDg3NWQ2Y2Y5OThlOTVjNWMAFAAFcmVhbG0AAAAACAAUllwtvWAhOUCwyj/NkYmpArkfcdmAKAAE23jwaA==",
+    "length": 124,
+    "source": "allocate-request-packet-w-pass.data",
+    "offset": 0,
+    "message_fields": {
+        "message_type": "0x003",
+        "transaction_id": "659acdc3cd51a118b3ff039d"
+    },
+    "credentials": {
+        "user": "user",
+        "password": "pass",
+        "realm": "realm"
+    }
+}

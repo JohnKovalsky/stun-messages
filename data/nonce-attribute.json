@@ -1,0 +1,9 @@
+{
+    "attribute_fields": {
+        "nonce": "61db60b4e71e98c1"
+    },
+    "data": "ABUAEDYxZGI2MGI0ZTcxZTk4YzE=",
+    "length": 20,
+    "source": "bind-response-error-401-packet.data",
+    "offset": 40
+}

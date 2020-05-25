@@ -1,0 +1,13 @@
+{
+    "data": "AAMAKCESpELiGszGVLP3r6+eFLMAGQAEEQAAAAANAAQAAAMJABgAAYAAAAAAFwAEAQAAAIAoAASWkHRT",
+    "length": 60,
+    "source": "allocate-request-packet-w-fingerprint.data",
+    "offset": 0,
+    "message_fields": {
+        "transaction_id" : "e21accc654b3f7afaf9e14b3",
+        "message_type": "0x003"
+    },
+    "meta": {
+        "description" : "allocate request without credentials, only fingerprint"
+    }
+}

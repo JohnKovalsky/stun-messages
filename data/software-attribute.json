@@ -1,0 +1,9 @@
+{
+    "attribute_fields":{
+        "software": "None"
+    },
+    "data": "gCIABE5vbmU=",
+    "length": 8,
+    "source": "bind-response-error-401-packet.data",
+    "offset": 72
+}

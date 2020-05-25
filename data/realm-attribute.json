@@ -1,0 +1,9 @@
+{
+    "attribute_fields": {
+        "realm": "realm"
+    },
+    "data": "ABQABXJlYWxtAAAA",
+    "length": 12,
+    "source": "bind-response-error-401-packet.data",
+    "offset": 60
+}

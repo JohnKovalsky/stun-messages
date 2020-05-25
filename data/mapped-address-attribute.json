@@ -1,0 +1,11 @@
+{
+    "attribute_fields": {
+        "address" : "127.0.0.1",
+        "port" : 58125,
+        "family" : 1
+    },
+    "data": "AAEACAAB4w1/AAAB",
+    "length": 12,
+    "source": "bind-response-success-packet.data",
+    "offset": 32
+}
