@@ -372,7 +372,8 @@ def _encode_message_header(
 
     header = pack("!HH", encoded_message_type, message_length)
     header += pack("!L", MAGIC_COOKIE)
-    header += pack("!3L", transaction_id, transaction_id, transaction_id)
+    header += int(transaction_id).to_bytes(12, "big", signed=False)
+    #header += pack("!3L", transaction_id, transaction_id, transaction_id)
     return header
 
 
