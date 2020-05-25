@@ -338,6 +338,12 @@ class ShortTermCredentials(Credentials):
         self.username = username
         self.password = password
 
+    def generate_key(self)->bytes:
+        #TODO: apply SASLprep
+        return hashlib.md5(
+            self.password
+        )
+
 
 def __encode_message_header(
         message_class:int16, 
