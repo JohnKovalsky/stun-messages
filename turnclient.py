@@ -245,16 +245,16 @@ class ResponseOriginAttribute(MappedAddressAttribute):
 
 
 @attribute(attribute_type=AttributeType.MessageIntegrity)
-class MessageIntegrity(Attribute):
+class MessageIntegrityAttribute(Attribute):
 
     def __init__(self, digest:bytes):
-        assert isinstance(digest, bytes) or isintance(digest, bytearray)
-        assert len(digets) == 20
+        assert isinstance(digest, (bytes, bytearray))
+        assert len(digest) == 20
         self.digest = digest
 
     def encode(self)->bytearray:
         return self.digest
-        
+
 
 @attribute(attribute_type=AttributeType.ErrorCode)
 class ErrorCodeValue(Attribute):
@@ -363,6 +363,12 @@ def _encode_message_header(
         message_length:int16, 
         transaction_id:int
     )->bytes:
+
+    assert message_class in list(MessageClass)
+    assert message_method >= 0 and message_method <= 0xFFFF
+    assert message_length >= 0 and message_length <= 0xFFFF
+    assert transaction_id >= 0
+    
     encoded_message_type = (
         ((message_method & 0x0F80) << 2)
         | ((message_method & 0x0070) << 1)

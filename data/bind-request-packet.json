@@ -1,0 +1,12 @@
+{
+    "message_fields": {
+        "method": 1,
+        "message_class": 0,
+        "transaction_id": 18631533838743839075088966849,
+        "attributes": []
+    },
+    "data": "AAEAACESpEI8M6TBPDOkwTwzpME=",
+    "length": 20,
+    "source": "bind-request-packet.data",
+    "offset": 0
+}

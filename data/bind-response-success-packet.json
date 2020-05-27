@@ -1,4 +1,10 @@
 {
+    "message_fields": {
+        "method": 1,
+        "message_class": "0x0100",
+        "transaction_id": 18631533838743839075088966849,
+        "attributes": []
+    },
     "data": "AQEAOCESpEI8M6TBPDOkwTwzpMEAIAAIAAHCH14SpEMAAQAIAAHjDX8AAAGAKwAIAAENln8AAAGALAAIAAENl8CoOAGAIgAETm9uZQ==",
     "length": 76,
     "source": "bind-response-success-packet.data",

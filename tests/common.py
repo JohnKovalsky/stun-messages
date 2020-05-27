@@ -29,3 +29,8 @@ def read_data_testcase_file(input_filepath:str)->bytes:
         data = input_file.read()
         return data
 
+
+def try_parse_hex_or_int(value:str):
+    if isinstance(value, str) and value[0:2] == "0x":
+        return int(value, 16)
+    return int(value)
