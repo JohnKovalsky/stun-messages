@@ -1,5 +1,5 @@
 import sys
-from struct import unpack
+from struct import unpack, pack
 from unittest import TestCase, main
 from os.path import join, normpath, dirname
 from common import read_json_testcase_file, try_parse_hex_or_int, print_bytes
@@ -7,7 +7,7 @@ from common import read_json_testcase_file, try_parse_hex_or_int, print_bytes
 sys.path.insert(1, join(sys.path[0], '../'))
 import turnclient
 from turnclient import MessageMethod, MessageClass, Message, \
-        _encode_message_header
+        _encode_message_header, _decode_message_header
 
 MAGIC_COOKIE = 0x2112A442
 
@@ -256,8 +256,87 @@ class EncoderTest(TestCase):
 
 class DecoderTest(TestCase):
 
-    def test_decode_invalid_bytes_length(self):
-        pass
+    def _sample_header(self, message_type, message_length, transaction_id):
+        return pack(
+            "!HHL",
+            message_type & 0x3FFF,
+            message_length,
+            MAGIC_COOKIE,
+        ) + transaction_id.to_bytes(12, "big")
+
+    def test_decode_header_invalid_bytes_length(self):
+        encoded_header = b"\x00" * 21
+
+        with self.assertRaises(AssertionError):
+            fields = _decode_message_header(encoded_header)
+        
+        encoded_header = b"\x00" * 19 
+
+        with self.assertRaises(AssertionError):
+            fields = _decode_message_header(encoded_header)
+
+    def test_decode_header_wrong_magick(self):
+        encoded_header = b"\x01" * 20
+
+        with self.assertRaises(AssertionError):
+            fields = _decode_message_header(encoded_header)
+
+    def test_decode_header_wrong_padding(self):
+        encoded_header = (
+            b"\xFF" #two first bits should be zero
+            + b"\x00" * 3 
+            + MAGIC_COOKIE.to_bytes(4, "big") 
+            + b"\x01" * 12
+        )
+
+        with self.assertRaises(AssertionError):
+            fields = _decode_message_header(encoded_header)
+
+    def test_decode_header_invalid_input_type(self):
+        encoded_header = "\0" * 20
+
+        with self.assertRaises(TypeError):
+            fields = _decode_message_header(encoded_header)
+
+    def test_decode_header_message_class(self):
+        message_classes = list(MessageClass)
+        message_length = 0
+        transaction_id = 123
+
+        for message_class in message_classes:
+            encoded_header = self._sample_header(
+                message_class,
+                message_length,
+                transaction_id
+            )
+
+            decoded_message_class, _, _, _ = _decode_message_header(
+                encoded_header
+            )
+            #TODO: check other fields
+
+            self.assertEqual(decoded_message_class, message_class)
+
+    def test_decode_header_message_length(self):
+        #TODO: finish this testcase
+        message_type = 0x0000
+        message_lengths = [0, 0x1, 0x0100, 0xFFFF]
+        transaction_id = 132
+
+        for message_length in message_lengths:
+            encoded_header = self._sample_header(
+                message_type,
+                message_length,
+                transaction_id
+            )
+
+            decoded_message_class, _, _, _ = _decode_message_header(
+                encoded_header
+            )
+
+            self.assertEqual(decoded_message_class, message_class)
+        
+
 
 if __name__ == "__main__":
     exit(main())

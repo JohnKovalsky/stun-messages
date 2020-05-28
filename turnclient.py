@@ -1,5 +1,5 @@
 from struct import pack, unpack
-from typing import List, NewType
+from typing import List, NewType, Tuple
 from enum import IntEnum, Enum
 from types import SimpleNamespace
 import random
@@ -365,7 +365,7 @@ def _encode_message_header(
     )->bytes:
 
     assert message_class in list(MessageClass)
-    assert message_method >= 0 and message_method <= 0xFFFF
+    assert message_method >= 0 and message_method <= 0xFFF
     assert message_length >= 0 and message_length <= 0xFFFF
     assert transaction_id >= 0
     
@@ -434,12 +434,13 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
     return packet
     
 
-def __decode_message_header(data:bytes):
+def _decode_message_header(data:bytes)->Tuple[MessageClass, int, int]:
     assert len(data) >= 20
 
     message_type, message_length, magic_cookie = unpack("!HHI", data[0:8])
     transaction_id  = unpack("!3L", data[8:20])
-    
+   
+    assert (message_type & 0xC000) == 0x0
     assert magic_cookie == MAGIC_COOKIE
     assert (message_length + 20) == len(data)
 
@@ -451,7 +452,7 @@ def __decode_message_header(data:bytes):
 
     message_class = message_type & 0x0110
     
-    return message_class, message_method, transaction_id
+    return message_class, message_method, message_length, transaction_id
 
 
 def __decode_attribute_header(data:bytes):
@@ -491,7 +492,7 @@ def decode(data, credentials:Credentials=None):
     assert isinstance(data, bytes)
     data_length = len(data)
    
-    message_class, message_method, transaction_id = __decode_message_header(data)
+    message_class, message_method, transaction_id = _decode_message_header(data)
 
     attributes = []
 
