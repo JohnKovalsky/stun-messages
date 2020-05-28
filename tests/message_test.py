@@ -107,9 +107,6 @@ class EncoderTest(TestCase):
         self.assertEqual(len(encoded_header), 20)
         self.assertEqual(encoded_header, b"\x00" * 4 + MAGIC_COOKIE.to_bytes(4, "big") + b"\x00" * 12)
 
-    #TODO: synthentic transaction_id test
-    #TODO: hand picked values method test
-
     def test_encode_request_header(self):
         header, payload, message_fields = load_message_testcase("bind-request-packet.json")
         method = message_fields["method"]
@@ -162,12 +159,10 @@ class EncoderTest(TestCase):
             )
 
     def test_encode_header_invalid_method(self):
-        invalid_methods = [-1, 0x1FFFF]
+        invalid_methods = [ -1, 0xFFFF, 0x2FFF]
         message_class = MessageClass.Request
         message_length = 12
         transaction_id = 123
-        invalid_transaction_ids = [-1, int.from_bytes(b"\xFF" * 12, "big") + 1]
-        invalid_message_lengths = [ -1, 0x1FFFF]
 
         for method in invalid_methods:
             self.assertRaises(
@@ -179,22 +174,69 @@ class EncoderTest(TestCase):
                 transaction_id
             )
 
-    def test_encode_header_invalid_length(self):
-        method = 0x0001
+    def test_encode_header_valid_method(self):
+        method_type_pairs = [
+            (0b0, 0b0),
+            (0b111111111111, 0b11111011101111),
+            (0b101010101010, 0b10101001001010),
+            (0b010101010101, 0b01010010100101),
+        ]
         message_class = MessageClass.Request
+        message_length = 13
         transaction_id = 123
-        invalid_message_lengths = [ -1, 0x1FFFF]
 
-        for message_length in invalid_message_lengths:
-            self.assertRaises(
-                AssertionError,
-                _encode_message_header,
+        for method, message_type in method_type_pairs:
+            encoded_header = _encode_message_header(
                 message_class,
                 method,
                 message_length,
                 transaction_id
             )
 
+            message_type_decoded = int.from_bytes(encoded_header[0:2], "big")
+            self.assertEqual(len(encoded_header), 20)
+            self.assertIsInstance(encoded_header, bytes)
+            self.assertEqual(message_type_decoded, message_type)
+
+    def test_encode_header_invalid_length(self):
+        method = 0x0001
+        message_class = MessageClass.Request
+        transaction_id = 123
+        invalid_message_lengths = [-1, 0x1FFFF]
+
+        for message_length in invalid_message_lengths:
+            data_description = f"case for message_length={message_length}"
+
+            with self.assertRaises(AssertionError, msg=data_description):
+                _encode_message_header(
+                    message_class,
+                    method,
+                    message_length,
+                    transaction_id
+                )
+           
+    def test_encode_header_valid_transaction_id(self):
+        transaction_ids = [0, 1, 2**96 - 1]
+        method = 0x0001
+        message_class = MessageClass.Request
+        message_length = 12
+
+        for transaction_id in transaction_ids:
+            data_description = f"case for transaction_id={transaction_id}"
+
+            encoded_header = _encode_message_header(
+                message_class,
+                method,
+                message_length,
+                transaction_id
+            )
+
+            transaction_id_bytes = encoded_header[8:]
+            transaction_id_decoded = int.from_bytes(transaction_id_bytes, "big")
+            self.assertEqual(len(encoded_header), 20, data_description)
+            self.assertIsInstance(encoded_header, bytes, data_description)
+            self.assertEqual(transaction_id_decoded, transaction_id, data_description)
+            
     def test_encode_header_invalid_transaction_id(self):
         method = 0x0001
         message_class = MessageClass.Request
@@ -211,6 +253,11 @@ class EncoderTest(TestCase):
                 transaction_id
             )
 
+
+class DecoderTest(TestCase):
+
+    def test_decode_invalid_bytes_length(self):
+        pass
 
 if __name__ == "__main__":
     exit(main())
