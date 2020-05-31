@@ -28,6 +28,13 @@ class MessageMethod(IntEnum):
     Bind:int16        = 0x0001
     Allocate:int16    = 0x0003
 
+    @staticmethod
+    def try_convert(value:int):
+        try:
+            return MessageMethod(value)
+        except ValueError:
+            return None
+
 
 class MessageClass(IntEnum):
     Request =       0x0000
@@ -52,6 +59,13 @@ class AttributeType(IntEnum):
     Software:int16          = 0x8022
     ResponseOrigin:int16    = 0x802B
     OtherAddress:int16      = 0x802C
+
+    @staticmethod
+    def try_convert(value:int):
+        try:
+            return AttributeType(value)
+        except ValueError:
+            return None
 
 
 def attribute(attribute_type):
@@ -82,13 +96,17 @@ class Attribute():
         self.data = data
     
     @property
-    def attribute_type(self):
+    def attribute_type(self)->int:
         return self.__attribute_type__
 
-    def validate(self):
+    @property
+    def attribute_name(self)->str:
+        return AttributeType.try_parse(self.attribute_type)
+
+    def validate(self)->bool:
         return True
 
-    def encode(self):
+    def encode(self)->bytearray:
         return self.data
 
     @staticmethod
