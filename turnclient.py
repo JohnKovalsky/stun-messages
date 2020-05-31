@@ -401,7 +401,10 @@ def _encode_message_header(
     return header
 
 
-def __encode_attribute_header(attribute_type:int16, attribute_length:int16)->bytes:
+def _encode_attribute_header(attribute_type:int16, attribute_length:int16)->bytes:
+    assert attribute_type >=0 and attribute_type <= 0xFFFF
+    assert attribute_length >=0 and attribute_length <= 0xFFFF
+
     attribute_header = pack("!HH", attribute_type, attribute_length)
     return attribute_header
 
@@ -432,7 +435,8 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
     message_class:int16 = message.message_class
     message_method:int16 = message.method
 
-    packet = _encode_message_header(
+    packet = bytearray()
+    packet += _encode_message_header(
         message_class,
         message_method,
         0,
@@ -473,7 +477,7 @@ def _decode_message_header(data:bytes)->Tuple[MessageClass, int, int]:
     return message_class, message_method, message_length, transaction_id
 
 
-def __decode_attribute_header(data:bytes):
+def _decode_attribute_header(data:bytes):
     assert len(data) >= 8
 
     attribute_type, attribute_length = unpack("!HH", data[0:4])
@@ -481,7 +485,7 @@ def __decode_attribute_header(data:bytes):
 
 
 def decode_attribute(data:bytes):
-    attribute_type, payload_length = __decode_attribute_header(data)
+    attribute_type, payload_length = _decode_attribute_header(data)
     data_idx = 4
    
     print(payload_length, data_idx, message_length, len(data))
@@ -519,7 +523,7 @@ def decode(data, credentials:Credentials=None):
         #TODO: remove commented code below
         ### OLD ATTRIBUTE PARSING:
         #print(data[data_idx:data_idx + 4])
-        #attribute_tyoe, attribute_length = __decode_attribute_header(data[data_idx:])
+        #attribute_tyoe, attribute_length = _decode_attribute_header(data[data_idx:])
         #print(attribute_length, data_idx, message_length, len(data))
         #data_idx += 4
         #print(f"attribute_type={attribute_type:x} attribute_length={attribute_length}")
