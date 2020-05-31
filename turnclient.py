@@ -460,11 +460,11 @@ def _decode_message_header(data:bytes)->Tuple[MessageClass, int, int]:
     assert len(data) >= 20
 
     message_type, message_length, magic_cookie = unpack("!HHI", data[0:8])
-    transaction_id  = unpack("!3L", data[8:20])
+    transaction_id = int.from_bytes(data[8:20], "big")
    
     assert (message_type & 0xC000) == 0x0
     assert magic_cookie == MAGIC_COOKIE
-    assert (message_length + 20) == len(data)
+    assert 20 >= len(data)
 
     message_method = (
         (message_type & 0x000F)
