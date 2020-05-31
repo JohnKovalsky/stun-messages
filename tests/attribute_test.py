@@ -6,7 +6,8 @@ from common import print_bytes, read_json_testcase_file, read_data_testcase_file
 
 sys.path.insert(1, join(sys.path[0], '../'))
 from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
-        AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute
+        AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
+        _encode_attribute_header
 
 DATA_DIR = join(normpath(dirname(__file__)), "..", "data")
 print(f"DATA_DIR = {DATA_DIR}")
@@ -146,6 +147,51 @@ class NonceAttributeTest(TestCase):
 
         self.assertEqual(attribute.attribute_type, attribute_fields["attribute_type"])
         self.assertEqual(attribute.nonce, attribute_fields["nonce"])
+
+
+class AttributeEncoder(TestCase):
+
+    def test_encode_attribute_header_type(self):
+        attribute_types = [0, 1, 0xFF, 0xFFFF]
+        attribute_length = 12
+        
+        for attribute_type in attribute_types:
+            header = _encode_attribute_header(attribute_type, attribute_length)
+            
+            self.assertIsInstance(header, bytes)
+            self.assertEqual(len(header), 4)
+            self.assertEqual(attribute_type, int.from_bytes(header[0:2], "big"))
+            self.assertEqual(attribute_length, int.from_bytes(header[2:4], "big"))
+
+    def test_encode_attribute_header_length(self):
+        attribute_type = 0xAACC
+        attribute_lengths = [0, 1, 0xFF, 0xFFFF]
+
+        for attribute_length in attribute_lengths:
+            header = _encode_attribute_header(attribute_type, attribute_length)
+            
+            self.assertIsInstance(header, bytes)
+            self.assertEqual(len(header), 4)
+            self.assertEqual(attribute_type, int.from_bytes(header[0:2], "big"))
+            self.assertEqual(attribute_length, int.from_bytes(header[2:4], "big"))
+
+    def test_encode_attribute_header_invalid_length(self):
+        attribute_type = 0xCCAA
+        attribute_lengths = [-1, 0x1FFFF]
+
+        for attribute_length in attribute_lengths:
+
+            with self.assertRaises(AssertionError):
+                header = _encode_attribute_header(attribute_type, attribute_length)
+
+    def test_encode_attribute_header_invalid_type(self):
+        attribute_types = [-1, 0x1FFFF]
+        attribute_length = 123
+
+        for attribute_type in attribute_types:
+
+            with self.assertRaises(AssertionError):
+                header = _encode_attribute_header(attribute_type, attribute_length) 
 
 
 if __name__ == "__main__":
