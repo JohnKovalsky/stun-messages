@@ -263,6 +263,47 @@ class DecoderTest(TestCase):
             MAGIC_COOKIE,
         ) + transaction_id.to_bytes(12, "big")
 
+    def test_decode_testcases_header(self):
+        testcases = [
+            "bind-request-packet.json",
+            "bind-response-success-packet.json",
+            "bind-response-error-401-packet.json",
+        ]
+
+        for testcase in testcases:
+            msg = f"in testcase '{testcase}'"
+            header, payload, message_fields = load_message_testcase(testcase)
+            
+            fields = _decode_message_header(header)
+            
+            message_class   = fields[0]
+            method          = fields[1]
+            message_length  = fields[2]
+            transaction_id  = fields[3]
+
+            self.assertIsInstance(fields, tuple, msg)
+            self.assertEqual(len(fields), 4, msg)
+            self.assertEqual(message_class, message_fields["message_class"], msg)
+            self.assertEqual(method, message_fields["method"], msg)
+            self.assertEqual(message_length, len(payload), msg)
+            self.assertEqual(transaction_id, message_fields["transaction_id"])
+
+    def test_decode_bind_success_response_header(self):
+        header, payload, message_fields = load_message_testcase("bind-request-packet.json")
+
+        fields = _decode_message_header(header)
+
+        message_class   = fields[0]
+        method          = fields[1]
+        message_length  = fields[2]
+        transaction_id  = fields[3]
+
+        self.assertIsInstance(fields, tuple)
+        self.assertEqual(len(fields), 4)
+        self.assertEqual(message_class, message_fields["message_class"])
+        self.assertEqual(method, message_fields["method"])
+        self.assertEqual(message_length, len(payload))
+
     def test_decode_header_invalid_bytes_length(self):
         encoded_header = b"\x00" * 21
 
@@ -309,15 +350,20 @@ class DecoderTest(TestCase):
                 transaction_id
             )
 
-            decoded_message_class, _, _, _ = _decode_message_header(
+            fields = _decode_message_header(
                 encoded_header
             )
-            #TODO: check other fields
+            decoded_message_class   = fields[0]
+            decoded_method          = fields[1]
+            decoded_message_length  = fields[2]
+            decoded_transaction_id  = fields[3]
 
             self.assertEqual(decoded_message_class, message_class)
+            self.assertEqual(decoded_method, 0x0)
+            self.assertEqual(decoded_message_length, message_length)
+            self.assertEqual(decoded_transaction_id, transaction_id)
 
     def test_decode_header_message_length(self):
-        #TODO: finish this testcase
         message_type = 0x0000
         message_lengths = [0, 0x1, 0x0100, 0xFFFF]
         transaction_id = 132
@@ -329,12 +375,79 @@ class DecoderTest(TestCase):
                 transaction_id
             )
 
-            decoded_message_class, _, _, _ = _decode_message_header(
+            fields = _decode_message_header(
                 encoded_header
             )
+            decoded_message_class   = fields[0]
+            decoded_method          = fields[1]
+            decoded_message_length  = fields[2]
+            decoded_transaction_id  = fields[3]
+
+            self.assertEqual(decoded_message_class, message_type)
+            self.assertEqual(decoded_method, message_type)
+            self.assertEqual(decoded_message_length, message_length)
+            self.assertEqual(decoded_transaction_id, transaction_id)
+        
+    def test_decode_header_message_length(self):
+        message_type = 0x0000
+        message_length = 0x0 
+        transaction_ids = [
+            0,
+            1,
+            0xC,
+            int.from_bytes(b"\xFF" * 12, "big"),
+            int.from_bytes(b"\xCC" * 12, "big"),
+        ] 
+
+        for transaction_id in transaction_ids:
+            encoded_header = self._sample_header(
+                message_type,
+                message_length,
+                transaction_id
+            )
+
+            fields = _decode_message_header(
+                encoded_header
+            )
+            decoded_message_class   = fields[0]
+            decoded_method          = fields[1]
+            decoded_message_length  = fields[2]
+            decoded_transaction_id  = fields[3]
+
+            self.assertEqual(decoded_message_class, message_type)
+            self.assertEqual(decoded_method, message_type)
+            self.assertEqual(decoded_message_length, message_length)
+            self.assertEqual(decoded_transaction_id, transaction_id)
+
+    def test_decode_header_message_length(self):
+        type_method_class_triple = [
+            (0b0, 0b0, 0b0),
+            (0b11111111111111, 0x0110, 0xFFF),
+            (0b10101101011010, 0x0110, 0xAAA),
+            (0b10101001001010, 0x0000, 0xAAA),
+        ]
+        message_length = 0x0 
+        transaction_id = 123
+
+        for message_type, message_class, method in type_method_class_triple:
+            encoded_header = self._sample_header(
+                message_type,
+                message_length,
+                transaction_id
+            )
+
+            fields = _decode_message_header(
+                encoded_header
+            )
+            decoded_message_class   = fields[0]
+            decoded_method          = fields[1]
+            decoded_message_length  = fields[2]
+            decoded_transaction_id  = fields[3]
 
             self.assertEqual(decoded_message_class, message_class)
-        
+            self.assertEqual(decoded_method, method)
+            self.assertEqual(decoded_message_length, message_length)
+            self.assertEqual(decoded_transaction_id, transaction_id)
 
 
 if __name__ == "__main__":
