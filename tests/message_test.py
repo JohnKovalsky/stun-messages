@@ -22,7 +22,7 @@ def load_message_testcase(testcase_name:str):
 
     if "message_class" in message_fields:
         message_fields["message_class"] = try_parse_hex_or_int(message_fields["message_class"])
-
+    
     message_header = data[0:20]
     message_payload = data[20:]
     return message_header, message_payload, message_fields
@@ -107,31 +107,30 @@ class EncoderTest(TestCase):
         self.assertEqual(len(encoded_header), 20)
         self.assertEqual(encoded_header, b"\x00" * 4 + MAGIC_COOKIE.to_bytes(4, "big") + b"\x00" * 12)
 
-    def test_encode_request_header(self):
-        header, payload, message_fields = load_message_testcase("bind-request-packet.json")
-        method = message_fields["method"]
-        message_class = message_fields["message_class"]
-        message_length = len(payload)
-        transaction_id = message_fields["transaction_id"] 
+    def test_encode_testcase_header(self):
+        testcases = [
+            "bind-request-packet.json",
+            "bind-response-success-packet.json",
+            "bind-response-error-401-packet.json"
+        ]
 
-        encoded_header = _encode_message_header(message_class, method, message_length, transaction_id)
-        
-        self.assertIsInstance(encoded_header, bytes)
-        self.assertEqual(len(encoded_header), 20)
-        self.assertEqual(encoded_header, header)
+        for testcase in testcases:
+            header, payload, message_fields = load_message_testcase(testcase)
+            method = message_fields["method"]
+            message_class = message_fields["message_class"]
+            message_length = len(payload)
+            transaction_id = message_fields["transaction_id"] 
 
-    def test_encode_response_header(self):
-        header, payload, message_fields = load_message_testcase("bind-response-success-packet.json")
-        method = message_fields["method"]
-        message_class = message_fields["message_class"]
-        transaction_id = message_fields["transaction_id"]
-        message_length = len(payload)
-
-        encoded_header = _encode_message_header(message_class, method, message_length, transaction_id)
-
-        self.assertIsInstance(encoded_header, bytes)
-        self.assertEqual(len(encoded_header), 20)
-        self.assertEqual(encoded_header, header)
+            encoded_header = _encode_message_header(
+                message_class, 
+                method, 
+                message_length, 
+                transaction_id
+            )
+            
+            self.assertIsInstance(encoded_header, bytes)
+            self.assertEqual(len(encoded_header), 20)
+            self.assertEqual(encoded_header, header)
 
     def test_encode_header_valid_message_class(self):
         method = 0x0001
