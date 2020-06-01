@@ -2,12 +2,13 @@ import sys
 from struct import unpack
 from os.path import join, dirname, normpath
 from unittest import TestCase, main
+from unittest.mock import MagicMock, Mock
 from common import print_bytes, read_json_testcase_file, read_data_testcase_file
 
 sys.path.insert(1, join(sys.path[0], '../'))
 from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
         AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
-        _encode_attribute_header
+        Attribute, encode_attribute, _encode_attribute_header
 
 DATA_DIR = join(normpath(dirname(__file__)), "..", "data")
 print(f"DATA_DIR = {DATA_DIR}")
@@ -192,6 +193,75 @@ class AttributeEncoder(TestCase):
 
             with self.assertRaises(AssertionError):
                 header = _encode_attribute_header(attribute_type, attribute_length) 
+
+    def test_encode_invalid_attribute(self):
+        invalid_attributes = [None, "attribute"]
+
+        for attribute in invalid_attributes:
+            with self.assertRaises(AssertionError):
+                encode_attribute(attribute)
+
+    def test_require_attribute_encode_to_bytes(self):
+        attribute = MagicMock(spec=Attribute)
+        attribute.encode = MagicMock(return_value="invalid return type")
+
+        with self.assertRaises(AssertionError):
+            encode_attribute(attribute)
+
+    def test_attribute_encode(self):
+        attribute_type = 0x13
+        attribute_payload = b"sample encode value"
+        payload_size = len(attribute_payload)
+        attribute = Mock(
+            spec=Attribute, 
+            **{'attribute_type': attribute_type}
+        )
+        attribute.encode = MagicMock(return_value=attribute_payload)
+
+        encoded_attribute = encode_attribute(attribute)
+
+        self.assertEqual(int.from_bytes(encoded_attribute[0:2], "big"), attribute_type)
+        self.assertEqual(int.from_bytes(encoded_attribute[2:4], "big"), payload_size)
+        self.assertEqual(encoded_attribute[4: 4 + payload_size], attribute_payload)
+
+    def test_attribute_encode_padding(self):
+        attribute_type = 0x23
+        payload_sizes = [4, 5, 6, 7, 8,]
+
+        for payload_size in payload_sizes:
+            msg = f"for payload_size={payload_size}"
+            attribute_payload = b"a" * payload_size
+            payload_size = len(attribute_payload)
+            attribute = Mock(
+                spec=Attribute, 
+                **{'attribute_type': attribute_type}
+            )
+            attribute.encode = MagicMock(return_value=attribute_payload)
+
+            encoded_attribute = encode_attribute(attribute)
+            
+            decoded_attribute_type = int.from_bytes(encoded_attribute[0:2], "big")
+            decoded_attribute_length = int.from_bytes(encoded_attribute[2:4], "big")
+
+            self.assertEqual(decoded_attribute_type, attribute_type, msg=msg)
+            self.assertEqual(decoded_attribute_length, payload_size, msg=msg)
+            self.assertEqual(
+                encoded_attribute[4:4 + payload_size], 
+                attribute_payload, 
+                msg=msg
+            )
+            self.assertEqual(len(encoded_attribute) % 4, 0, msg=msg)
+            padding_size = (-payload_size) % 4
+            self.assertEqual(
+                encoded_attribute[-padding_size if padding_size else 99:], 
+                b"\x00" * padding_size, 
+                msg=msg
+            )
+
+            
+class AttributeDecoder(TestCase):
+    pass
+
 
 
 if __name__ == "__main__":
