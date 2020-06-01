@@ -411,13 +411,16 @@ def _encode_attribute_header(attribute_type:int16, attribute_length:int16)->byte
 
 def encode_attribute(attribute:Attribute)->bytes:
    
+    assert attribute is not None
+    assert isinstance(attribute, Attribute)
+
     attribute_payload = attribute.encode()
     assert isinstance(attribute_payload, bytearray) \
             or isinstance(attribute_payload, bytes)
 
     attribute_length = len(attribute_payload)
     
-    packet = _encode_message_header(attribute.attribute_type, attribute_length)
+    packet = _encode_attribute_header(attribute.attribute_type, attribute_length)
     packet += attribute_payload
 
     # add padding to aling to 4 bytes
