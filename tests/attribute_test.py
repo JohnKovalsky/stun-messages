@@ -1,14 +1,15 @@
 import sys
-from struct import unpack
+from struct import unpack, pack
 from os.path import join, dirname, normpath
 from unittest import TestCase, main
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 from common import print_bytes, read_json_testcase_file, read_data_testcase_file
 
 sys.path.insert(1, join(sys.path[0], '../'))
 from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
         AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
-        Attribute, encode_attribute, _encode_attribute_header
+        Attribute, encode_attribute, decode_attribute, \
+        _encode_attribute_header, _decode_attribute_header
 
 DATA_DIR = join(normpath(dirname(__file__)), "..", "data")
 print(f"DATA_DIR = {DATA_DIR}")
@@ -260,8 +261,99 @@ class AttributeEncoder(TestCase):
 
             
 class AttributeDecoder(TestCase):
-    pass
 
+    def _prepare_header(self, attribute_type, attribute_length):
+        return pack("!HH", attribute_type, attribute_length)
+
+    def test_decode_header_invalid_argument(self):
+        data = "string data"
+
+        with self.assertRaises(AssertionError):
+            _decode_attribute_header(data)
+
+    def test_decode_header_data_too_short(self):
+        data = b"\x00" * 3
+
+        with self.assertRaises(AssertionError):
+            _decode_attribute_header(data)
+
+    def test_decode_header_attribute_length(self):
+        attribute_lengths = [0, 1, 0x0F, 0xF0, 0xFF] 
+        attribute_type = 0x01
+
+        for attribute_length in attribute_lengths:
+            msg = f"for attribute_length={attribute_length}"
+
+            data = self._prepare_header(attribute_type, attribute_length)
+
+            decoded_type, decoded_length = _decode_attribute_header(data)
+
+            self.assertEqual(decoded_type, attribute_type, msg=msg)
+            self.assertEqual(decoded_length, attribute_length, msg=msg)
+
+    def test_decode_header_attribute_type(self):
+        attribute_length = 13
+        attribute_types = [0, 1, 0x0F, 0xF0, 0xFF]
+        
+        for attribute_type in attribute_types:
+            msg = f"for attribute_type={attribute_type}"
+
+            data = self._prepare_header(attribute_type, attribute_length)
+
+            decoded_type, decoded_length = _decode_attribute_header(data)
+
+            self.assertEqual(decoded_type, attribute_type, msg=msg)
+            self.assertEqual(decoded_length, attribute_length, msg=msg)
+
+    def test_decode_attribute_parse_by_type(self):
+        attribute_type = 0x13
+
+        payload = b"sample payload bytes"
+        attribute_length = len(payload)
+        header = self._prepare_header(attribute_type, attribute_length)
+
+        data = header + payload
+        
+        fake_attribute = MagicMock(Attribute)
+
+        with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
+            attribute_decode_method = Mock(return_value=fake_attribute) 
+            attribute_parsers[attribute_type] = attribute_decode_method
+            attribute, decoded_payload_length, decoded_padding_length = decode_attribute(data)
+
+            self.assertIsInstance(attribute, Attribute)
+            self.assertEqual(attribute, fake_attribute)
+            attribute_decode_method.assert_called_with(payload)
+            self.assertEqual(decoded_payload_length, attribute_length)
+            self.assertEqual(decoded_padding_length, 0)
+
+    def test_decode_attribute_parse_padding(self):
+        attribute_type = 0x15
+
+        payload_size_padding_pairs = [
+            (16, 0),
+            (17, 3),
+            (18, 2),
+            (19, 1),
+            (20, 0),
+        ]
+        
+        with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
+            attribute_decode_method = Mock(return_value=MagicMock(Attribute))
+            attribute_parsers[attribute_type] = attribute_decode_method
+            
+            for payload_length, padding_length in payload_size_padding_pairs:
+                payload = b"\x61" * payload_length
+                header = self._prepare_header(attribute_type, payload_length)
+
+                data = header + payload
+
+                attribute, decoded_payload_length, decoded_padding_length = decode_attribute(data)
+
+                self.assertIsInstance(attribute, Attribute)
+                attribute_decode_method.assert_called_with(payload)
+                self.assertEqual(decoded_payload_length, payload_length)
+                self.assertEqual(decoded_padding_length, padding_length)
 
 
 if __name__ == "__main__":
