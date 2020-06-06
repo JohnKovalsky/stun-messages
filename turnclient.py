@@ -1,6 +1,6 @@
 from struct import pack, unpack
-from typing import List, NewType, Tuple
-from enum import IntEnum, Enum
+from typing import List, NewType, Tuple, Dict
+from enum import IntEnum, Enum 
 from types import SimpleNamespace
 import random
 import types
@@ -43,7 +43,7 @@ class MessageClass(IntEnum):
     Error =         0x0110
 
 
-ATTRIBUTE_PARSERS = {}
+ATTRIBUTE_PARSERS:Dict[int, callable] = {}
 
 
 class AttributeType(IntEnum):
@@ -481,7 +481,8 @@ def _decode_message_header(data:bytes)->Tuple[MessageClass, int, int]:
 
 
 def _decode_attribute_header(data:bytes):
-    assert len(data) >= 8
+    assert len(data) >= 4
+    assert isinstance(data, (bytes, bytearray))
 
     attribute_type, attribute_length = unpack("!HH", data[0:4])
     return attribute_type, attribute_length
@@ -491,12 +492,12 @@ def decode_attribute(data:bytes):
     attribute_type, payload_length = _decode_attribute_header(data)
     data_idx = 4
    
-    print(payload_length, data_idx, message_length, len(data))
-    print(f"attribute_type={attribute_type:x} payload_length={payload_length}")
+    #print(payload_length, data_idx, len(data))
+    #print(f"attribute_type={attribute_type:x} payload_length={payload_length}")
     
     assert payload_length <= len(data) - data_idx
-    assert attribute_type in set(map(lambda x: x.value, AttributeType.__members__.values()))
-    
+    #print(ATTRIBUTE_PARSERS)
+
     if attribute_type in ATTRIBUTE_PARSERS:
         assert attribute_type in ATTRIBUTE_PARSERS
         parser = ATTRIBUTE_PARSERS[attribute_type]
@@ -507,6 +508,7 @@ def decode_attribute(data:bytes):
     # - if no 'strict' mode is set, parse attribute as special 'unknown attribute'
     #   and let user do parsing
     else:
+        attribute = None
         print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
   
     padding_length = (4 - payload_length) % 4
