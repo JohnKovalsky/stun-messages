@@ -10,9 +10,9 @@ from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
         AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
         Attribute, encode_attribute, decode_attribute, \
         _encode_attribute_header, _decode_attribute_header
+    
 
 DATA_DIR = join(normpath(dirname(__file__)), "..", "data")
-print(f"DATA_DIR = {DATA_DIR}")
 
 
 def load_attribute_testcase(testcase_name):
@@ -318,7 +318,7 @@ class AttributeDecoder(TestCase):
 
         with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
             attribute_decode_method = Mock(return_value=fake_attribute) 
-            attribute_parsers[attribute_type] = attribute_decode_method
+            attribute_parsers[attribute_type] = (attribute_decode_method, Attribute)
             attribute, decoded_payload_length, decoded_padding_length = decode_attribute(data)
 
             self.assertIsInstance(attribute, Attribute)
@@ -340,7 +340,7 @@ class AttributeDecoder(TestCase):
         
         with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
             attribute_decode_method = Mock(return_value=MagicMock(Attribute))
-            attribute_parsers[attribute_type] = attribute_decode_method
+            attribute_parsers[attribute_type] = (attribute_decode_method, Attribute)
             
             for payload_length, padding_length in payload_size_padding_pairs:
                 payload = b"\x61" * payload_length
