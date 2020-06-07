@@ -8,7 +8,7 @@ from common import print_bytes, read_json_testcase_file, read_data_testcase_file
 sys.path.insert(1, join(sys.path[0], '../'))
 from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
         AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
-        Attribute, encode_attribute, decode_attribute, \
+        Attribute, UnknownAttribute, encode_attribute, decode_attribute, \
         _encode_attribute_header, _decode_attribute_header
     
 
@@ -354,6 +354,23 @@ class AttributeDecoder(TestCase):
                 attribute_decode_method.assert_called_with(payload)
                 self.assertEqual(decoded_payload_length, payload_length)
                 self.assertEqual(decoded_padding_length, padding_length)
+    
+    def test_decode_unknown_attribute(self):
+        attribute_type = 0xFF
+
+        payload = b"sample payload bytes"
+        attribute_length = len(payload)
+        
+        header = self._prepare_header(attribute_type, attribute_length)
+        data = header + payload
+        
+        attribute, decoded_payload_length, decoded_padding_length = decode_attribute(data)
+
+        self.assertIsInstance(attribute, UnknownAttribute)
+        self.assertEqual(attribute.payload, payload)
+        self.assertEqual(attribute.attribute_type, attribute_type)
+        self.assertEqual(decoded_payload_length, attribute_length)
+        self.assertEqual(decoded_padding_length, 0)
 
 
 if __name__ == "__main__":

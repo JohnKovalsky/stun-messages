@@ -106,7 +106,15 @@ class Attribute():
 
     @staticmethod
     def decode(data:bytearray):
-        return AttributeValue(data)
+        raise NotImplemented()
+
+
+class UnknownAttribute(Attribute):
+
+    def __init__(self, attribute_type:int16, payload:bytes):
+        super().__init__()
+        self.__attribute_type__ = attribute_type
+        self.payload = payload
 
 
 class StringAttribute(Attribute):
@@ -501,8 +509,8 @@ def decode_attribute(data:bytes):
         assert isinstance(attribute, attribute_class)
         
     else:
-        attribute = None
-        print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
+        attribute = UnknownAttribute(attribute_type, payload)
+        logger.debug(f"Parser found unknown attribute {attribute_type:X}")
   
     padding_length = (4 - payload_length) % 4
     return attribute, payload_length, padding_length

@@ -73,7 +73,7 @@ class MessageTest(TestCase):
         for message_class in valid_classes:
             message = Message(message_method, message_class)
 
-    def test_message_invalid_class_valued(self):
+    def test_message_invalid_class_values(self):
         message_method = 0x0001
         invalid_classes = [None, 1, 12]
 
