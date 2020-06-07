@@ -449,8 +449,6 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
         transaction_id
     )
 
-    assert len(packet) == 20
-
     for attribute in message.attributes:
 
         attribute_bytes = encode_attribute(attribute)
