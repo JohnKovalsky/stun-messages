@@ -19,8 +19,6 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(message)s")
 
 int16 = NewType("int16", int)
 
-b = b"123412341"
-
 MAGIC_COOKIE = 0x2112A442
 
 
@@ -43,7 +41,7 @@ class MessageClass(IntEnum):
     Error =         0x0110
 
 
-ATTRIBUTE_PARSERS:Dict[int, callable] = {}
+ATTRIBUTE_PARSERS:Dict[int, Tuple[callable, type]] = {}
 
 
 class AttributeType(IntEnum):
@@ -80,7 +78,7 @@ def attribute(attribute_type):
 
         logger.debug(f"Adding parser to attribute 0x{attribute_type:x}")
         assert attribute_type_value not in ATTRIBUTE_PARSERS
-        ATTRIBUTE_PARSERS[attribute_type_value] = decode_method
+        ATTRIBUTE_PARSERS[attribute_type_value] = (decode_method, Cls)
 
         setattr(Cls, "__attribute_type__", attribute_type_value) 
 
@@ -91,9 +89,6 @@ def attribute(attribute_type):
 class Attribute():
     
     __attribute_type__:int16 = None
-    
-    def __ini__(self, data:bytearray):
-        self.data = data
     
     @property
     def attribute_type(self)->int:
@@ -107,7 +102,7 @@ class Attribute():
         return True
 
     def encode(self)->bytearray:
-        return self.data
+        raise NotImplemented()
 
     @staticmethod
     def decode(data:bytearray):
@@ -498,15 +493,13 @@ def decode_attribute(data:bytes):
     assert payload_length <= len(data) - data_idx
     #print(ATTRIBUTE_PARSERS)
 
+    payload = data[data_idx:data_idx + payload_length]
+
     if attribute_type in ATTRIBUTE_PARSERS:
-        assert attribute_type in ATTRIBUTE_PARSERS
-        parser = ATTRIBUTE_PARSERS[attribute_type]
-        attribute = parser(data[data_idx:data_idx + payload_length])
+        parser, attribute_class = ATTRIBUTE_PARSERS[attribute_type]
+        attribute = parser(payload)
+        assert isinstance(attribute, attribute_class)
         
-    #TODO: handle unknown arguments in two ways:
-    # - if 'strict' mode is set then raise appriorate exception
-    # - if no 'strict' mode is set, parse attribute as special 'unknown attribute'
-    #   and let user do parsing
     else:
         attribute = None
         print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
