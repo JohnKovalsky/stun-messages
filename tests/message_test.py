@@ -1,17 +1,21 @@
 import sys
 from struct import unpack, pack
 from unittest import TestCase, main
+from unittest.mock import MagicMock, patch
 from os.path import join, normpath, dirname
 from common import read_json_testcase_file, try_parse_hex_or_int, print_bytes
 
 sys.path.insert(1, join(sys.path[0], '../'))
-import turnclient
-from turnclient import MessageMethod, MessageClass, Message, \
+import stunmsg
+from stunmsg import MessageMethod, MessageClass, Message, \
+        UnknownAttribute, \
+        encode, \
         _encode_message_header, _decode_message_header
 
 MAGIC_COOKIE = 0x2112A442
 
 DATA_DIR = join(normpath(dirname(__file__)), "..", "data")
+
 
 def load_message_testcase(testcase_name:str):
     data, json_fields = read_json_testcase_file(join(DATA_DIR, testcase_name))
@@ -26,6 +30,30 @@ def load_message_testcase(testcase_name:str):
     message_header = data[0:20]
     message_payload = data[20:]
     return message_header, message_payload, message_fields
+
+
+def load_testcase_attributes(testcase_fields):
+    attribute_dicts = testcase_fields["attributes"]
+    assert isinstance(attribute_dicts, list)
+    
+    attributes = []
+    
+    for attribute_dict in attribute_dicts:
+        assert isinstance(attribute_dict, dict)
+        attribute_type = try_parse_hex_or_int(attribute_dict["attribute_type"])
+        attribute_length = try_parse_hex_or_int(attribute_dict["attribute_length"])
+        ATTRIBUTE_PARSERS = stunmsg.ATTRIBUTE_PARSERS
+        if attribute_type in ATTRIBUTE_PARSERS:
+            _, attribute_class = ATTRIBUTE_PARSERS[attribute_type]
+        else:
+            attribute_class = UnknownAttribute
+ 
+        attribute_fields = attribute_dict["attribute_fields"]
+        attribute = attribute_class(**attribute_fields)
+
+        attributes.append(attribute)
+
+    return attributes
 
 
 class MessageTest(TestCase):
@@ -84,8 +112,8 @@ class MessageTest(TestCase):
         message_method = MessageMethod.Bind.value
         message_class = MessageClass.Request
         attributes = [
-                turnclient.SoftwareAttribute("Software"), 
-                turnclient.MessageIntegrityAttribute(b"\x12"*20)
+                stunmsg.SoftwareAttribute("Software"), 
+                stunmsg.MessageIntegrityAttribute(b"\x12"*20)
             ]
 
         message = Message(message_method, message_class, attributes=attributes)
@@ -251,6 +279,93 @@ class EncoderTest(TestCase):
                 message_length,
                 transaction_id
             )
+
+    def test_encode_message_invalid_argument(self):
+        with self.assertRaises(AssertionError):
+            encode(None)
+
+        with self.assertRaises(AssertionError):
+            encode("asd")
+
+    def test_encode_message_assembly_header(self):
+        message_class = MessageClass.Indication
+        method = MessageMethod.Bind
+
+        message = Message(
+            message_class=message_class,
+            method=method,
+            attributes=[]
+        )
+
+        with patch("stunmsg._encode_message_header") as encode_header_mock:
+            with patch("stunmsg.encode_attribute") as encode_attribute_mock:
+                fake_header = b"\x00" * 20
+                encode_header_mock.return_value = fake_header
+                
+                encoded_message = encode(message)
+
+                encode_header_mock.assert_called_once()
+                encode_header_args = encode_header_mock.call_args[0]
+
+                self.assertEqual(encode_header_args[0], message_class)
+                self.assertEqual(encode_header_args[1], method)
+                self.assertEqual(encode_header_args[2], 0)
+                self.assertIsInstance(encode_header_args[3], int)
+                encode_attribute_mock.assert_not_called()
+                self.assertEqual(encoded_message, fake_header) 
+
+    def test_encode_message_attribute(self):
+        #TODO: finish this testcase
+        message_class = MessageClass.Indication
+        method = MessageMethod.Bind
+
+        message = Message(
+            message_class=message_class,
+            method=method,
+            attributes=[]
+        )
+
+        with patch("stunmsg._encode_message_header") as encode_header_mock:
+            with patch("stunmsg.encode_attribute") as encode_attribute_mock:
+                fake_header = b"\x00" * 20
+                encode_header_mock.return_value = fake_header
+                
+                encoded_message = encode(message)
+
+                encode_header_mock.assert_called_once()
+                encode_header_args = encode_header_mock.call_args[0]
+
+                self.assertEqual(encode_header_args[0], message_class)
+                self.assertEqual(encode_header_args[1], method)
+                self.assertEqual(encode_header_args[2], 0)
+                self.assertIsInstance(encode_header_args[3], int)
+                encode_attribute_mock.assert_not_called()
+                self.assertEqual(encoded_message, fake_header) 
+
+    def test_encode_message_testcases(self):
+        #TODO: finish encoding tests for response messages
+        #       when encoding of all attributes will be implemented
+        testcases = [
+                "bind-request-packet.json",
+                #"bind-response-success-packet.json",
+                #"bind-response-error-401-packet.json",
+        ]
+        
+        for testcase in testcases:
+            msg = f"for testcase {testcase}"
+            header, payload, fields = load_message_testcase(testcase)
+            attributes = load_testcase_attributes(fields)
+             
+            message = Message(
+                message_class=MessageClass(fields["message_class"]),
+                method=fields["method"],
+                attributes=attributes
+            )
+
+            encoded_message = encode(message)
+
+            self.assertEqual(encoded_message[0:8], header[0:8], msg=msg)
+            self.assertEqual(encoded_message[20:], payload, msg=msg)
 
 
 class DecoderTest(TestCase):

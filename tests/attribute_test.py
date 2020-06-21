@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 from common import print_bytes, read_json_testcase_file, read_data_testcase_file
 
 sys.path.insert(1, join(sys.path[0], '../'))
-from turnclient import MappedAddressAttribute, XorMappedAddressAttribute, \
+from stunmsg import MappedAddressAttribute, XorMappedAddressAttribute, \
         AttributeType, RealmAttribute, SoftwareAttribute, NonceAttribute, \
         Attribute, UnknownAttribute, encode_attribute, decode_attribute, \
         _encode_attribute_header, _decode_attribute_header
@@ -316,7 +316,7 @@ class AttributeDecoder(TestCase):
         
         fake_attribute = MagicMock(Attribute)
 
-        with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
+        with patch("stunmsg.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
             attribute_decode_method = Mock(return_value=fake_attribute) 
             attribute_parsers[attribute_type] = (attribute_decode_method, Attribute)
             attribute, decoded_payload_length, decoded_padding_length = decode_attribute(data)
@@ -338,7 +338,7 @@ class AttributeDecoder(TestCase):
             (20, 0),
         ]
         
-        with patch("turnclient.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
+        with patch("stunmsg.ATTRIBUTE_PARSERS", new_callable=dict) as attribute_parsers:
             attribute_decode_method = Mock(return_value=MagicMock(Attribute))
             attribute_parsers[attribute_type] = (attribute_decode_method, Attribute)
             

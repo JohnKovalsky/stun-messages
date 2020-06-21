@@ -193,6 +193,7 @@ class MappedAddressAttribute(Attribute):
         IPv6 = 2
 
     def __init__(self, address:str, port:int16, family:AddressFamily=AddressFamily.IPv4):
+        #TODO: make those a properties
         self.address = address
         self.port = port
         self.family = family
