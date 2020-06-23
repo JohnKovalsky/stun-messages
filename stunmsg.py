@@ -401,7 +401,6 @@ def _encode_message_header(
     header = pack("!HH", encoded_message_type, message_length)
     header += pack("!L", MAGIC_COOKIE)
     header += int(transaction_id).to_bytes(12, "big", signed=False)
-    #header += pack("!3L", transaction_id, transaction_id, transaction_id)
     return header
 
 
@@ -525,31 +524,6 @@ def decode(data, credentials:Credentials=None):
 
     data_idx = 20
     while data_idx < data_length:
-        #TODO: remove commented code below
-        ### OLD ATTRIBUTE PARSING:
-        #print(data[data_idx:data_idx + 4])
-        #attribute_tyoe, attribute_length = _decode_attribute_header(data[data_idx:])
-        #print(attribute_length, data_idx, message_length, len(data))
-        #data_idx += 4
-        #print(f"attribute_type={attribute_type:x} attribute_length={attribute_length}")
-        #assert attribute_length <= (message_length - 20)
-        #assert attribute_type in set(map(lambda x: x.value, AttributeType.__members__.values()))
-        
-        #print(AttributeType.__members__)
-
-        #if attribute_type in ATTRIBUTE_PARSERS:
-            #assert attribute_type in ATTRIBUTE_PARSERS
-            #parser = ATTRIBUTE_PARSERS[attribute_type]
-            #attribute = parser(data[data_idx:data_idx + attribute_length])
-            
-            #attributes.append(attribute)
-        #else:
-            #print(f"UNKNOWN ATTRIBUTE OF TYPE {attribute_type:X}")
-        #data_idx += attribute_length
-
-        #padding_length = (4 - attribute_length) % 4
-        #data_idx += padding_length
-
         attribute, payload_length, padding_length = decode_attribute(data[data_idx:])
         if attribute:
             attributes.append(attribute)
@@ -560,52 +534,4 @@ def decode(data, credentials:Credentials=None):
         message_class=MessageClass(message_class),
         attributes=attributes,
     )
-
-
-if __name__ == "__main__":
-    print("System byte order:", sys.byteorder)
-
-    message = Message(
-        method=MessageMethod.Bind,
-        message_class=MessageClass.Request,
-        attributes=[
-           SoftwareAttribute("python turn client v0.0.1"),
-        ]
-    )
-
-    data = encode(message)
-
-    BYTES_PER_LINE = 4
-
-    def print_bytes(data:bytearray):
-        for i in range(math.ceil(len(data) // BYTES_PER_LINE)):
-            print(" ".join(f"{d:02x}" for d in data[i * BYTES_PER_LINE:(i + 1) * BYTES_PER_LINE]))
-
-    print_bytes(data)
-
-    def load_packet_data_file(filepath:str):
-        with open(filepath, "rb") as data_file:
-            packet_data = data_file.read()
-        return packet_data
-
-    print("loading bind-request-success test case")
-    packet_data = load_packet_data_file("data/bind-response-success-packet.data")
-    print_bytes(packet_data)
-
-    message = decode(packet_data)
-    print(message)
-    type_to_attribute = { a.attribute_type: a for a in message.attributes }
-    print(f"Software = {type_to_attribute[AttributeType.Software].software or ''}")
-    print(f"XorMappedAddress = {type_to_attribute[AttributeType.XorMappedAddress].address or ''}")
-
-    send_over_network = False
-    if send_over_network:
-        local_ip = "127.0.0.1"
-        local_port = 0
-        print(f"sending data over network from {local_ip}:{local_port}")
-        client_socket = socket.socket(family=socket.af_inet, type=socket.sock_dgram)
-
-        client_socket.bind((local_ip, local_port))
-
-        client_socket.sendto(data, ("127.0.0.1", 3478))
 
