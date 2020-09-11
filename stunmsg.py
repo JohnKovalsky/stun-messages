@@ -413,7 +413,6 @@ def _encode_attribute_header(attribute_type:int16, attribute_length:int16)->byte
 
 
 def encode_attribute(attribute:Attribute)->bytes:
-   
     assert attribute is not None
     assert isinstance(attribute, Attribute)
 
@@ -432,7 +431,10 @@ def encode_attribute(attribute:Attribute)->bytes:
     return packet
 
 
-def encode(message:Message, credentials:Credentials=None)->bytearray:
+def encode(
+        message:Message, 
+        credentials:Credentials=None, 
+    )->bytearray:
     assert isinstance(message, Message)
 
     message_length = 0
@@ -450,7 +452,6 @@ def encode(message:Message, credentials:Credentials=None)->bytearray:
     )
 
     for attribute in message.attributes:
-
         attribute_bytes = encode_attribute(attribute)
         packet += attribute_bytes
         message_length += len(attribute_bytes) 
@@ -505,26 +506,31 @@ def decode_attribute(data:bytes):
         parser, attribute_class = ATTRIBUTE_PARSERS[attribute_type]
         attribute = parser(payload)
         assert isinstance(attribute, attribute_class)
-        
+
+    elif attribute_mappings and (attribute_type in attribute_mappings):
+        parser = attribute_mappings[attribute_type]
+        attribute = parser(payload)
+        assert isinstance(attribute, attribute_class)
+
     else:
         attribute = UnknownAttribute(attribute_type, payload)
         logger.debug(f"Parser found unknown attribute {attribute_type:X}")
-  
+
     padding_length = (4 - payload_length) % 4
     return attribute, payload_length, padding_length
 
 
-def decode(data, credentials:Credentials=None):
+def decode(data, credentials:Credentials=None, attribute_mappings:Dict[int16, Attribute]=None):
     assert isinstance(data, bytes)
     data_length = len(data)
-   
+
     message_class, message_method, transaction_id = _decode_message_header(data)
 
     attributes = []
 
     data_idx = 20
     while data_idx < data_length:
-        attribute, payload_length, padding_length = decode_attribute(data[data_idx:])
+        attribute, payload_length, padding_length = decode_attribute(data[data_idx:], attribute_mappings)
         if attribute:
             attributes.append(attribute)
         data_idx += 4 + payload_length + padding_length
