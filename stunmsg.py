@@ -490,10 +490,10 @@ def _decode_attribute_header(data:bytes):
     return attribute_type, attribute_length
 
 
-def decode_attribute(data:bytes):
+def decode_attribute(data:bytes, attribute_mappings:Dict[int16, Attribute]=None):
     attribute_type, payload_length = _decode_attribute_header(data)
     data_idx = 4
-   
+       
     #print(payload_length, data_idx, len(data))
     #print(f"attribute_type={attribute_type:x} payload_length={payload_length}")
     
