@@ -167,10 +167,11 @@ class EncoderTest(TestCase):
         transaction_id = 0
 
         for message_class in message_classes:
+            case_message = f"for message_class={message_class}" 
             encoded_header = _encode_message_header(message_class, method, message_length, transaction_id)
-            message_type = int.from_bytes(encoded_header[0:2], "big")
-            self.assertEqual(len(encoded_header), 20)
-            self.assertEqual(message_class, message_type & 0x0110) 
+            message_type = int.from_bytes(encoded_header[0:2], case_message)
+            self.assertEqual(len(encoded_header), 20, case_message)
+            self.assertEqual(message_class, message_type & 0x0110, case_message) 
         
     def test_encode_header_invalid_message_class(self):
         method = 0x0001
@@ -298,49 +299,46 @@ class EncoderTest(TestCase):
         )
 
         with patch("stunmsg._encode_message_header") as encode_header_mock:
-            with patch("stunmsg.encode_attribute") as encode_attribute_mock:
-                fake_header = b"\x00" * 20
-                encode_header_mock.return_value = fake_header
-                
-                encoded_message = encode(message)
+            fake_header = b"\x00" * 20
+            encode_header_mock.return_value = fake_header
+            
+            encoded_message = encode(message)
 
-                encode_header_mock.assert_called_once()
-                encode_header_args = encode_header_mock.call_args[0]
+            encode_header_mock.assert_called_once()
+            encode_header_args = encode_header_mock.call_args[0]
 
-                self.assertEqual(encode_header_args[0], message_class)
-                self.assertEqual(encode_header_args[1], method)
-                self.assertEqual(encode_header_args[2], 0)
-                self.assertIsInstance(encode_header_args[3], int)
-                encode_attribute_mock.assert_not_called()
-                self.assertEqual(encoded_message, fake_header) 
+            self.assertEqual(encode_header_args[0], message_class)
+            self.assertEqual(encode_header_args[1], method)
+            self.assertEqual(encode_header_args[2], 0)
+            self.assertIsInstance(encode_header_args[3], int)
+            self.assertEqual(encoded_message, fake_header) 
 
     def test_encode_message_attribute(self):
         #TODO: finish this testcase
         message_class = MessageClass.Indication
         method = MessageMethod.Bind
 
+        attribute_mock = MagicMock()
+
         message = Message(
             message_class=message_class,
             method=method,
-            attributes=[]
+            attributes=[
+                attribute_mock
+            ]
         )
 
-        with patch("stunmsg._encode_message_header") as encode_header_mock:
-            with patch("stunmsg.encode_attribute") as encode_attribute_mock:
-                fake_header = b"\x00" * 20
-                encode_header_mock.return_value = fake_header
-                
-                encoded_message = encode(message)
+        with patch("stunmsg.encode_attribute") as encode_attribute_mock:
+            fake_encoded_attribute = b"\13" * 12
+            encode_attribute_mock.return_value = fake_encoded_attribute
 
-                encode_header_mock.assert_called_once()
-                encode_header_args = encode_header_mock.call_args[0]
+            encoded_message = encode(message)
 
-                self.assertEqual(encode_header_args[0], message_class)
-                self.assertEqual(encode_header_args[1], method)
-                self.assertEqual(encode_header_args[2], 0)
-                self.assertIsInstance(encode_header_args[3], int)
-                encode_attribute_mock.assert_not_called()
-                self.assertEqual(encoded_message, fake_header) 
+            encode_attribute_mock.assert_called_once()
+            encode_attribute_args = encode_attribute_mock.call_args[0]
+
+            self.assertIs(encode_attribute_args[0], attribute_mock)
+            self.assertEqual(encoded_message[-len(fake_encoded_attribute):], fake_encoded_attribute)
 
     def test_encode_message_testcases(self):
         #TODO: finish encoding tests for response messages
@@ -503,7 +501,7 @@ class DecoderTest(TestCase):
             self.assertEqual(decoded_message_length, message_length)
             self.assertEqual(decoded_transaction_id, transaction_id)
         
-    def test_decode_header_message_length(self):
+    def test_decode_header_transaction_id(self):
         message_type = 0x0000
         message_length = 0x0 
         transaction_ids = [
@@ -534,7 +532,7 @@ class DecoderTest(TestCase):
             self.assertEqual(decoded_message_length, message_length)
             self.assertEqual(decoded_transaction_id, transaction_id)
 
-    def test_decode_header_message_length(self):
+    def test_decode_header_message_type(self):
         type_method_class_triple = [
             (0b0, 0b0, 0b0),
             (0b11111111111111, 0x0110, 0xFFF),
